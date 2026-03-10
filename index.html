@@ -228,7 +228,11 @@
 
       gameState.lives = 3;
       gameState.score = 0;
+
+      // Calculate initial safe area AFTER setup is complete
       gameState.safeAreaPercent = calculateSafeAreaPercent();
+
+      console.log('Initial safe area percent:', gameState.safeAreaPercent);
 
       updateUI();
     }
@@ -251,60 +255,28 @@
     }
 
     function calculateSafeAreaPercent() {
-      // Calculate actual safe area from all safe zones
-      // Use simplified calculation that correctly handles border areas
-      // and wall areas without relying on PolyBool (which has numerical issues
-      // with thin overlapping rectangles)
-      try {
-        if (gameState.safeZones.length === 0) {
-          return 0;
-        }
+      // Simplified calculation: border + walls area
+      // Border: top + bottom + left + right
+      // Note: corners are counted once (not overlapping)
+      const borderArea = LOGICAL_WIDTH * SAFE_BORDER * 2 + (LOGICAL_HEIGHT - SAFE_BORDER * 2) * SAFE_BORDER * 2;
 
-        // Calculate union of borders and walls using PolyBool
-        // Start with first zone
-        let combined = {
-          regions: [gameState.safeZones[0].map(p => [p.x, p.y])],
-          inverted: false
-        };
-
-        // Union all remaining zones
-        for (let i = 1; i < gameState.safeZones.length; i++) {
-          const zone = {
-            regions: [gameState.safeZones[i].map(p => [p.x, p.y])],
-            inverted: false
-          };
-          combined = PolyBool.union(combined, zone);
-        }
-
-        // Calculate total area from union
-        let totalSafeArea = 0;
-        if (combined && combined.regions) {
-          combined.regions.forEach(region => {
-            totalSafeArea += calculatePolygonArea(region.map(p => ({ x: p[0], y: p[1] })));
-          });
-        }
-
-        const total = LOGICAL_WIDTH * LOGICAL_HEIGHT;
-        let percent = Math.round((totalSafeArea / total) * 100);
-
-        // Clamp to valid range (0-100)
-        return Math.max(0, Math.min(100, percent));
-      } catch (e) {
-        // Fallback: simplified calculation
-        // Border area (top + bottom + left + right, no double counting corners)
-        let totalSafe = SAFE_BORDER * 2 * LOGICAL_WIDTH +
-                        (LOGICAL_HEIGHT - SAFE_BORDER * 2) * SAFE_BORDER * 2;
-
-        // Add wall areas
+      // Add wall areas
+      let wallArea = 0;
+      if (gameState.walls && gameState.walls.length > 0) {
         gameState.walls.forEach(wall => {
-          const w = wall[2].x - wall[0].x;
-          const h = wall[1].y - wall[0].y;
-          totalSafe += w * h;
+          const w = Math.abs(wall[2].x - wall[0].x);
+          const h = Math.abs(wall[1].y - wall[0].y);
+          wallArea += w * h;
         });
-
-        const total = LOGICAL_WIDTH * LOGICAL_HEIGHT;
-        return Math.round((totalSafe / total) * 100);
       }
+
+      const totalSafeArea = borderArea + wallArea;
+      const total = LOGICAL_WIDTH * LOGICAL_HEIGHT;
+      const percent = Math.round((totalSafeArea / total) * 100);
+
+      console.log('Safe area:', borderArea, '+', wallArea, '=', totalSafeArea, '/', total, '=', percent + '%');
+
+      return Math.max(0, Math.min(100, percent));
     }
 
     // ==================== INPUT HANDLING ====================
